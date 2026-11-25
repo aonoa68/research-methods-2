@@ -1,0 +1,45 @@
+---
+title: "リサーチ方法論2_3_小レポート解答例"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+date: "2023-04-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 課題
+Animals.csv(Sourceを改変)のデータについて、次の問いに答えてください。
+
+Source: P. J. Rousseeuw and A. M. Leroy (1987) Robust Regression and Outlier Detection. Wiley, p. 57.
+
+# 1. Bodyの最大値とそれが何の動物か答えてください。
+
+データの読み込みと確認
+```{r read.csv}
+animals<-read.csv("https://raw.githubusercontent.com/aonoa68/Rdata/main/Animals.csv",header=T,row.names=1)
+head(animals)
+```
+```{r}
+summary(animals)
+```
+これでanimalsが28行3列のデータで、bodyの最大値は87000.00であることがわかる。
+
+28行しかないので全てのデータを表示する。
+```{r}
+animals
+```
+Brachiosaurusがbodyの最大値87000.000を取ることがわかる。
+
+# 2. BodyとBrainの標準偏差ではどちらが大きいでしょうか？数値を求めた上で答えてください。
+
+```{r}
+sd(animals$body)
+sd(animals$brain)
+```
+
+Body16480.49, Brain1334.929のため、bodyの方が標準偏差が大きい。
+（※ただし、標準偏差の大きさを比べる際は、変動係数を用いて比べること。）

@@ -1,0 +1,209 @@
+---
+title: "リサーチ方法論2-14"
+output: html_document
+date: "2023-07-12"
+---
+## パッケージのインストール
+```{r}
+# MASSパッケージをインストール
+install.packages("MASS",repos = "http://cran.us.r-project.org")
+```
+
+## データの用意
+```{r}
+# ライブラリを読み込む
+library(MASS)
+# ボストン住宅データセットを読み込む
+data(Boston)
+# データセットの内容を表示
+head(Boston)
+```
+データセットの列の変数は次のような意味。
+crim: 町ごとの一人当たりの犯罪率
+
+zn: 25,000平方フィート以上の住宅区画の割合
+
+indus: 非小売業の土地面積の割合
+
+chas: チャールズ川の周囲にあるかどうか（1: 川の境界に接する、0: それ以外）
+
+nox: 窒素酸化物の濃度
+
+rm: 住居ごとの平均部屋数
+
+age: 1940年より前に建てられた所有者居住ユニットの割合
+
+dis: 5つのボストンの雇用センターまでの重み付き距離
+
+rad: ラジアルハイウェイへのアクセス性の指標
+
+tax: 10,000ドルあたりの固定資産税率
+
+ptratio: 町ごとの生徒と教師の比率
+
+black: 町ごとの黒人の比率を示す指標
+
+lstat: 低所得者の割合
+
+medv: 住宅価格
+
+## 相関係数を求め散布図を描く
+```{r}
+cor(Boston)
+pairs(Boston) #全部
+```
+
+ひとまず、いくつかの変数は相関が高く、いくつかはそれほど高くないように見える。説明変数同士の相関が高い場合、*多重共線性*を考慮して、どちらかの変数を抜いた上で、分析を行う必要が出てくる。
+ひとまず、厳密な解釈のための変数選択は後回しにするとして、重回帰分析の手法としては、下記の命令で実行できる。
+
+## 分析
+```{r}
+lmfit = lm(medv ~ ., data=Boston)
+summary(lmfit)
+```
+
+`medv ~ .`とすることで、目的変数をmedv, 説明変数はそれ以外の全てを意味する。変数が多い場合に便利。
+
+```{r}
+lmfit_2 = lm(medv ~ crim+zn+indus+chas+nox+rm+age+dis+rad+tax+ptratio+black+lstat, data=Boston)
+summary(lmfit_2)
+```
+
+`medv ~ crim+zn+indus+chas+nox+rm+age+dis+rad+tax+ptratio+black+lstat`としても同じ意味。
+説明変数を+で繋げていく。
+
+## 回帰の診断
+このユニットを作成にあたり
+https://htsuda.net/stats/regression.html#%E5%9B%9E%E5%B8%B0%E3%81%AE%E8%A8%BA%E6%96%AD%E6%96%B9%E6%B3%95
+を参照しています。
+```{r}
+par(mfrow=c(2,2))
+plot(lmfit)
+```
+
+### 正規性（Normality）
+目的変数が正規分布に従うという条件。
+もしそうなっていれば、Normal Q-Qにおいてデータは対角線上に分布
+値が小さい場合と大きい場合は少し外れる結果。
+
+```{r}
+residplot = function( lmfit, nbreaks = 10 ){
+    z = rstudent( lmfit )
+    hist( z, breaks = nbreaks, freq = F,
+        xlab = "Studentized Residual", main = "Distribution of Errors" )
+    rug( jitter( z ), col = "brown" )
+    curve( dnorm( x, mean = mean( z ), sd = sd( z ) ), add = T, col = "blue", lwd = 2 )
+    lines( density( z )$x, density( z )$y, col = "red", lwd = 2, lty = 2 )
+    legend( "topleft", legend = c( "Normal Curve", "Kernel Density Curve"),
+        lty = 1:2, col = c( "blue", "red" ), cex =.7 )
+}
+
+residplot( lmfit )
+```
+
+正規分布と実際データの確率密度関数の違いがよくわかる。
+
+### 独立性（Independence）
+各観測が独立でなければならないという条件。
+時系列データや階層性のあるデータの場合にはこの条件が満たされない。
+car パッケージの durbinWatsonTest() 関数は Durbin-Watson 検定によって系列的な相関について調べることができる。
+```{r}
+car::durbinWatsonTest( lmfit )
+##  lag Autocorrelation D-W Statistic p-value
+##    1     -0.04687792      2.083648    0.59
+##  Alternative hypothesis: rho != 0
+```
+p < 0.05 であるため自己相関がある(つまり変数選択しなけばならない)
+
+### 線形性（Linearity）
+目的変数が説明変数と線形な関係を持つという条件。
+Component plus residual プロットを使うと線形性を確認できる。
+```{r}
+par( mar = c( 4.5, 4.5, 3, 1 ) )
+#マージンは、プロットエリア（グラフの描画領域）と図全体との間のスペースを指定。par(mar = c(4.5, 4.5, 3, 1))の引数c(4.5, 4.5, 3, 1)は、マージンの上部、下部、左側、右側のサイズを指定。
+library(car)
+crPlots( lmfit )
+```
+
+2つの線が重なっていれば、線形性が満たされる。
+crim, chas, rm
+は重なっていない。
+
+### 等分散性（Homoscedasticity）
+目的変数の分散が位置によらず一定であるという条件。
+もし等分散性が満たされていれば残差の値は予測値の値に依存しない（つまり水平な分布）になる
+```{r}
+library(car)
+ncvTest( lmfit )
+
+par( mar = c( 4.5, 4.5, 2, 1 ) )
+spreadLevelPlot( lmfit )
+
+```
+p 値が 0.05 未満であり、等分散ではないという結果
+
+## 総当たり法でAICを求める。
+
+http://stat.sys.i.kyoto-u.ac.jp/titech/class/dk2005/san08.pdfを参照しています。
+
+```{r}
+library(leaps)
+best<-regsubsets(medv~., data = Boston, nvmax = 13, method = "seqrep")
+sbest<-summary(best)
+plot(best,scale="adjr2")
+```
+```{r}
+sbest$rss #これらのモデルのRSS(残差変動)
+n<-ncol(Boston) #Bostonの変数の数をnとする
+p<-nrow(sbest$which) #ベストモデルsbestの数
+aicbest<- n*(1+log(2*pi*sbest$rss/n))+2*(2+(1:p)) #各モデルのAICの計算
+aicbest #AICの表示
+order(aicbest) #AICの小さい順に並べると2番目のモデルが最小
+sbest$which[2,] #2番目のモデルの変数の有無を表示。TRUEが採用する変数。
+aicbest[2] #2番目のモデルのAIC
+```
+medv~rm+lstatのモデルが最良という結果になった。
+そのAICは145.8089
+
+## 多重共線性の評価
+```{r}
+bestfit<-lm(medv~rm+lstat,data=Boston)
+summary(bestfit)
+library(car)
+vif(bestfit)
+cor(Boston$rm, Boston$lstat)
+plot(Boston$rm, Boston$lstat)
+```
+
+rm 1.60452  lstat  1.60452 
+となり、10を超えていないので多重共線性は見られない。
+
+ただし、散布図と相関係数を見ると、-0.6程度で中程度の負の相関が見られる。
+
+rm: 住居ごとの平均部屋数
+
+lstat: 低所得者の割合
+
+なので、住宅価格＝ 5.09479×住居ごとの平均部屋数-0.64236×低所得者の割合-1.35827
+
+部屋数が増えれば住宅価格が上がり、低所得者の割合が増えれば、住宅価格が下がるという関係が見られる。
+
+### 標準化回帰係数
+```{r}
+z = as.data.frame( scale(Boston) ) #scale関数で各列の値は平均0、標準偏差1の分布となる
+zfit = lm( medv ~ rm + lstat, data = z )
+options( scipen = 20 ) #表示される数値の指数表記の桁数（表示精度）を設定
+summary( zfit )
+```
+
+住宅価格＝ 0.389218752538994461343 ×住居ごとの平均部屋数-0.498757036300060407896 ×低所得者の割合+ 0.000000000000001289686
+
+標準化することで、低所得者層の割合の方が平均部屋数より住宅価格にマイナスの影響を与えていることがわかる。
+
+その他、各検定の結果は有意水準5%の棄却域にあるので、検定の結果は有意である。
+
+### その他注意点
+このデータでは線形性と等分散性が見られない部分があった。
+このような場合、説明変数の選択を行うほか、データの外れ値を抜いて回帰、目的変数の指数変換や対数変換を行う必要がある。
+授業で取り扱うレベルを超えるので、下記に参考資料を示します。
+https://htsuda.net/stats/regression.html#%E5%AF%BE%E5%87%A6%E6%96%B9%E6%B3%95

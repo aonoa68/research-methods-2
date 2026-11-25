@@ -1,0 +1,145 @@
+---
+title: "リサーチ方法論第13回演習"
+output: html_document
+date: "2023-07-03"
+---
+パッケージにあらかじめ組み込まれているcarsというデータを使う。
+
+```{r}
+data(cars) #データを読み込む
+head(cars) #データの内容確認
+cars$speed<-cars$speed*1.6 #マイルをkmに直す。
+cars$dist<-cars$dist*0.3 #フィートをmに直す。
+head(cars) #データの内容確認
+plot(cars) #散布図を描く
+```
+```{r}
+cor(cars) #cor()で相関係数を出す。
+```
+
+speedとdistの間の相関係数は約0.8069。
+
+回帰分析を行う。関数はlm。
+
+目的変数~説明変数　という書き方をする。
+
+dist~speed　でdist=a*speed+bという回帰式を示す。
+```{r}
+cars.lm<-lm(dist~speed, data=cars) #回帰分析
+summary(cars.lm) #結果の表示
+```
+#### Residuals:
+残差。データから求められる実際の値と理論式から求められる値との差。
+
+#### Coefficients:
+回帰式の係数
+Estimateの欄が推定値。
+dist=a*speed+bにおいて、
+dist=0.73733*speed-5.27373となることを示している。
+
+Std. Errorは係数の誤差。
+t valueは推定値の検定統計量。
+
+#### Signif. codes: 
+Pr(>|t|)の右隣に示されている*の数がどういう意味かを示している。
+
+0.0123 *となっているので、(Intercept)の信頼度は、有意水準で
+‘*’ 0.05 ‘
+要するに有意水準5%で帰無仮説「係数は0である」を棄却する。
+係数が0となるということは回帰式の切片が0であることを示すが、それを棄却するので、切片Interceptの値には意味があるということ。
+
+`1.49e-12 ***`となっているので、speedの信頼度は、有意水準で
+`‘0 '***'`
+要するに有意水準がほぼ0%に近い値においても、帰無仮説「係数は0である」を棄却する。
+係数が0となるということは回帰式の回帰係数が0であることを示すが、それを棄却するので、回帰係数speedの値には意味があるということ。
+
+#### Residual standard error: 
+残差の標準誤差。残差の二乗和を残差の自由度で割った平方根。
+
+#### Multiple R-squared:
+決定係数(coefficient of determination)、寄与率(contribution ration)
+
+#### Adjusted R-squared:
+調整済み決定係数。標本数と説明変数の数を考慮した係数。
+
+ともに1に近いほど、データがモデルに当てはまっている。
+
+#### F-statistic: 
+F統計量。帰無仮説「決定係数が0である」を分散分析の手法で検定している。p-value:1.49e-12なので、帰無仮説を5%有意水準においても、それ以下の水準においても棄却できる。
+
+```{r}
+plot(cars)
+abline(cars.lm) #散布図に回帰直線を書き加える。
+```
+```{r}
+confidence_intervals <- confint(cars.lm)
+confidence_intervals
+```
+confin()で回帰係数の信頼区間が出力される。
+dist=a*speed+bとして、予測された回帰式は
+dist=0.73733*speed-5.27373
+だったが、そのaとbの信頼区間は0.5806808<a<0.8939725
+-9.3503549<b<-1.1971021
+ということ。
+
+```{r}
+#全ての値の予測値と信頼区間
+predict<-predict(cars.lm, interval="confidence")
+predict
+```
+
+```{r}
+#残差
+residual<-residuals(cars.lm)
+residual
+```
+
+```{r}
+#
+par(mfrow=c(2,2))
+plot(cars.lm)
+```
+
+#### Residuals vs Fitted
+予測値(Fitted values)と残差の散布図。
+
+#### Nomal QQ
+データが正規分布に従うと点が直線上に並ぶ。
+
+#### Scale-Location
+予測値と残差の平方根
+
+#### Residuals vs Leverage
+梃子値(Leverage)と標準化した残差の散布図。点線がクック距離というもの。梃子値もクック距離もモデルの当てはまりの良さを示す。
+
+
+
+# 決定係数の計算
+```{r}
+# 元のデータから計算
+sr<-sum((cars.lm$fitted-mean(cars.lm$fitted))^2)
+se<-sum((cars$dist-cars.lm$fitted)^2)
+st<-sum((cars$dist-mean(cars$dist))^2)
+sr/st #決定係数
+
+#先ほどのsummary(cars.lm)の値から取り出した場合
+summary(cars.lm)$r.squared 
+```
+#元のデータから計算
+と
+#先ほどのsummary(cars.lm)の値から取り出した場合
+が一致する。
+
+# F値
+```{r}
+# 元の値からF値を求める
+ve<-se/48
+sr/ve
+# 先ほどのsummary(cars.lm)の値から取り出した場合
+summary(cars.lm)$fstatistic
+```
+
+#元のデータから計算
+と
+#先ほどのsummary(cars.lm)の値から取り出した場合
+が一致する。
